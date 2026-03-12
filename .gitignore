@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.python_packages/
+.venv/
+
+# Environment & Secrets
+.env
+local.settings.json
+
+# Output data (probably don't want raw data in git)
+output/
+
+# Azure Functions
+.funcignore   # optional: you can keep this
+host.json     # optional: usually kept in repo
+
+# OS
+.DS_Store
+Thumbs.db
