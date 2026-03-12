@@ -44,3 +44,4 @@ jobs:
           app-name: func-runningcoach-dev
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
           scm-do-build-during-deployment: true
+          package: .
