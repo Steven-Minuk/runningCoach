@@ -1,4 +1,4 @@
 azure-functions
 azure-storage-blob
 pyodbc
-python-dotenv
+python-dotenvpytest
