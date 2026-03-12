@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx
+  version="1.1"
+  creator="Runkeeper - http://www.runkeeper.com"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd"
+  xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">
+<trk>
+  <name><![CDATA[Running 6/9/21 11:20 pm]]></name>
+  <time>2021-06-09T14:20:48Z</time>
+<trkseg>
+<trkpt lat="35.871947000" lon="129.208278000"><ele>26.2</ele><time>2021-06-09T14:20:48Z</time></trkpt>
+<trkpt lat="35.872067000" lon="129.208307000"><ele>26.2</ele><time>2021-06-09T14:21:03Z</time></trkpt>
+<trkpt lat="35.871982000" lon="129.208351000"><ele>26.2</ele><time>2021-06-09T14:21:27Z</time></trkpt>
+<trkpt lat="35.871896000" lon="129.208300000"><ele>26.2</ele><time>2021-06-09T14:21:35Z</time></trkpt>
+</trkseg>
+</trk>
+</gpx>
