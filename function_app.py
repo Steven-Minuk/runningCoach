@@ -9,6 +9,7 @@ from azure.storage.blob import BlobServiceClient
 from gpx_parser import parse_gpx
 from metrics import enrich_track_points, calculate_run_summary
 from sql_loader import get_db_connection, insert_run_summary_if_not_exists
+from data_quality import validate_gpx_points, validate_run_summary
 
 app = func.FunctionApp()
 
@@ -78,6 +79,12 @@ def process_gpx_blob(event: func.EventGridEvent) -> None:
     activity_name = parsed["activity_name"]
     points = parsed["points"]
 
+    # --- GPX Input Validation ---
+    quality = validate_gpx_points(points)
+    logging.info(quality.summary())
+    if not quality.passed:
+        raise ValueError(f"GPX quality check failed: {quality.errors}")
+
     # --- Transform ---
     try:
         enriched_points = enrich_track_points(points)
@@ -112,6 +119,12 @@ def process_gpx_blob(event: func.EventGridEvent) -> None:
             }
         )
 
+    # --- Validating Summary ---
+    quality = validate_run_summary(summary)
+    logging.info(quality.summary())
+    if not quality.passed:
+        raise ValueError(f"Summary quality check failed: {quality.errors}")
+
     # --- Upload to Silver and Gold ---
     silver_blob_name = f"{run_id}_track_points.json"
     gold_blob_name = f"{run_id}_summary.json"
@@ -134,7 +147,7 @@ def process_gpx_blob(event: func.EventGridEvent) -> None:
         logging.info(f"Written gold blob: {gold_blob_name}")
     except Exception as e:
         logging.error(f"Failed to upload blobs for {run_id}: {e}")
-        raise
+        raise    
 
     # --- Load to SQL ---
     try:
