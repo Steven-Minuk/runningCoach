@@ -19,3 +19,7 @@ host.json     # optional: usually kept in repo
 # OS
 .DS_Store
 Thumbs.db
+
+# Agentic AI
+ai_coach/docs/
+ai_coach/vectorstore/
