@@ -41,4 +41,8 @@ jobs:
         with:
           app-name: func-runningcoach-dev
           scm-do-build-during-deployment: true
+          enable-oryx-build: true
           package: .
+      - name: Restart Function App
+        run: |
+          az functionapp restart --name func-runningcoach-dev --resource-group rg-ai-running-coach
