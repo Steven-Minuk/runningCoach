@@ -5,3 +5,16 @@ output/
 *.gpx
 local.settings.json
 .python_packages
+
+# not needed on Azure
+.git
+.github
+.pytest_cache
+tests/
+*.pyc
+*.pyo
+
+# dev files
+debug_silver.py
+main.py
+load_gold_to_sql.py
