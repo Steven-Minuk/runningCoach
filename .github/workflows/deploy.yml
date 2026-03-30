@@ -42,7 +42,12 @@ jobs:
           app-name: func-runningcoach-dev
           scm-do-build-during-deployment: true
           enable-oryx-build: true
+          respect-funcignore: true
           package: .
+      
       - name: Restart Function App
         run: |
+          sleep 30
           az functionapp restart --name func-runningcoach-dev --resource-group rg-ai-running-coach
+          sleep 60
+          az functionapp show --name func-runningcoach-dev --resource-group rg-ai-running-coach --query "state" -o tsv
