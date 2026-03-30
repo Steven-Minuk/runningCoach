@@ -1,5 +1,7 @@
 azure-functions
 azure-storage-blob
 pyodbc
-python-dotenv
-pytest
+
+gpxpy          # if used anywhere
+sqlalchemy     # db_reader.py
+langchain      # ai_coach (not needed for function app but shouldn't break it)

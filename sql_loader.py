@@ -1,10 +1,6 @@
 import os
 
 import pyodbc
-from dotenv import load_dotenv
-
-load_dotenv(override=True)
-
 
 def get_db_connection() -> pyodbc.Connection:
     server = os.getenv("AZURE_SQL_SERVER")
