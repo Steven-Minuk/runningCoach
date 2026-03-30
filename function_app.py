@@ -8,7 +8,11 @@ from azure.storage.blob import BlobServiceClient
 
 from gpx_parser import parse_gpx
 from metrics import enrich_track_points, calculate_run_summary
-from sql_loader import get_db_connection, insert_run_summary_if_not_exists
+from sql_loader import (
+    get_db_connection,
+    insert_run_summary_if_not_exists,
+    insert_track_points_if_not_exists,
+)
 from data_quality import validate_gpx_points, validate_run_summary
 
 app = func.FunctionApp()
@@ -155,9 +159,15 @@ def process_gpx_blob(event: func.EventGridEvent) -> None:
         try:
             inserted = insert_run_summary_if_not_exists(conn, summary)
             if inserted:
-                logging.info(f"Inserted run_id={run_id} into Azure SQL.")
+                logging.info(f"Inserted run_id={run_id} into Azure SQL runs table.")
             else:
                 logging.info(f"Skipped SQL insert for run_id={run_id}, already exists.")
+
+            tp_inserted = insert_track_points_if_not_exists(conn, run_id, silver_records)
+            if tp_inserted:
+                logging.info(f"Inserted {len(silver_records)} track_points for run_id={run_id}.")
+            else:
+                logging.info(f"Skipped track_points insert for run_id={run_id}, already exists.")
         finally:
             conn.close()
     except Exception as e:
