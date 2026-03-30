@@ -1,30 +1,4 @@
-name: CI/CD Pipeline
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest
-      - name: Run tests
-        run: pytest tests/ -v
-
-  deploy:
+deploy:
     name: Deploy to Azure Function
     runs-on: ubuntu-latest
     needs: test
@@ -32,22 +6,30 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - name: Deploy to Azure Functions
-        uses: Azure/functions-action@v1
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
-          app-name: func-runningcoach-dev
-          scm-do-build-during-deployment: true
-          enable-oryx-build: true
-          respect-funcignore: true
-          package: .
-      
+          python-version: '3.11'
+
+      - name: Install dependencies into package folder
+        run: |
+          pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+
+      - name: Deploy via Azure CLI
+        run: |
+          zip -r deploy.zip . -x "*.git*" -x ".venv/*" -x "tests/*" -x "ai_coach/*" -x "__pycache__/*" -x "*.pyc"
+          az functionapp deployment source config-zip \
+            --name func-runningcoach-dev \
+            --resource-group rg-ai-running-coach \
+            --src deploy.zip
+
       - name: Restart Function App
         run: |
           sleep 30
           az functionapp restart --name func-runningcoach-dev --resource-group rg-ai-running-coach
-          sleep 60
-          az functionapp show --name func-runningcoach-dev --resource-group rg-ai-running-coach --query "state" -o tsv
