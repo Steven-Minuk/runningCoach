@@ -18,3 +18,6 @@ tests/
 debug_silver.py
 main.py
 load_gold_to_sql.py
+
+# ai coach - not needed in function app
+ai_coach/

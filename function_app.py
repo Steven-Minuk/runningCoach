@@ -104,7 +104,7 @@ def process_gpx_blob(event: func.EventGridEvent) -> None:
     summary["run_id"] = run_id
     summary["source_file_name"] = source_file_name
 
-    # --- Build silver records ---
+    # --- Build silver records (raw datetime for SQL) ---
     silver_records = []
     for point in enriched_points:
         silver_records.append(
@@ -115,7 +115,7 @@ def process_gpx_blob(event: func.EventGridEvent) -> None:
                 "latitude": point["latitude"],
                 "longitude": point["longitude"],
                 "elevation_m": point["elevation_m"],
-                "point_time": point["point_time"].isoformat() if point["point_time"] else None,
+                "point_time": point["point_time"],  # raw datetime for SQL
                 "segment_distance_m": point["segment_distance_m"],
                 "cumulative_distance_m": point["cumulative_distance_m"],
                 "segment_seconds": point["segment_seconds"],
@@ -123,13 +123,21 @@ def process_gpx_blob(event: func.EventGridEvent) -> None:
             }
         )
 
+    # --- Build blob payload (isoformat strings for JSON serialization) ---
+    blob_payload = []
+    for r in silver_records:
+        blob_payload.append({
+            **r,
+            "point_time": r["point_time"].isoformat() if r["point_time"] else None,
+        })
+
     # --- Validating Summary ---
     quality = validate_run_summary(summary)
     logging.info(quality.summary())
     if not quality.passed:
         raise ValueError(f"Summary quality check failed: {quality.errors}")
 
-    # --- Upload to Silver and Gold ---
+    # --- Upload to Silver and Gold blobs ---
     silver_blob_name = f"{run_id}_track_points.json"
     gold_blob_name = f"{run_id}_summary.json"
 
@@ -138,7 +146,7 @@ def process_gpx_blob(event: func.EventGridEvent) -> None:
             connection_string=storage_connection,
             container_name="silver-track-points",
             blob_name=silver_blob_name,
-            payload=silver_records,
+            payload=blob_payload,  # use isoformat strings for JSON
         )
         logging.info(f"Written silver blob: {silver_blob_name}")
 
@@ -151,7 +159,7 @@ def process_gpx_blob(event: func.EventGridEvent) -> None:
         logging.info(f"Written gold blob: {gold_blob_name}")
     except Exception as e:
         logging.error(f"Failed to upload blobs for {run_id}: {e}")
-        raise    
+        raise
 
     # --- Load to SQL ---
     try:
