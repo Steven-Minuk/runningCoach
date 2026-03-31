@@ -23,3 +23,6 @@ Thumbs.db
 # Agentic AI
 ai_coach/docs/
 ai_coach/vectorstore/
+
+#SQL
+sql/temp.sql
