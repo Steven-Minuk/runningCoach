@@ -6,6 +6,16 @@ from sqlalchemy import create_engine, text
 from langchain.tools import tool
 
 
+def format_pace(decimal_pace: float) -> str:
+    """Convert decimal pace (e.g. 5.58) to MM:SS string (e.g. '5:35').
+    5.58 means 5 minutes + 0.58 * 60 = 34.8 seconds → 5:35 min/km."""
+    if not decimal_pace or pd.isna(decimal_pace):
+        return "N/A"
+    mins = int(decimal_pace)
+    secs = int(round((decimal_pace - mins) * 60))
+    return f"{mins}:{secs:02d}"
+
+
 def get_engine():
     server   = os.environ['AZURE_SQL_SERVER']
     database = os.environ['AZURE_SQL_DATABASE']
@@ -18,10 +28,6 @@ def get_engine():
     )
     return create_engine(conn_str)
 
-
-# ─────────────────────────────────────────
-# GOLD tools (runs table)
-# ─────────────────────────────────────────
 
 @tool
 def get_recent_runs(num_runs: int = 10) -> str:
@@ -44,12 +50,13 @@ def get_recent_runs(num_runs: int = 10) -> str:
         """), conn)
 
     result  = f"Last {num_runs} runs:\n"
-    result += "(pass run_id exactly as shown to get_run_pace_profile / get_elevation_profile)\n\n"
+    result += "(pass run_id exactly as shown to get_run_pace_profile / get_elevation_profile)\n"
+    result += "NOTE: pace is in MM:SS format (e.g. 5:35 means 5 minutes 35 seconds per km)\n\n"
     for _, row in df.iterrows():
         result += (
             f"- run_id={row['run_id']}  date={row['date']}  "
             f"{row['total_distance_km']:.2f} km "
-            f"@ {row['avg_pace_min_per_km']:.2f} min/km "
+            f"@ {format_pace(row['avg_pace_min_per_km'])} min/km "
             f"({row['duration_minutes']:.0f} mins)  "
             f"elev_gain={row['elevation_gain_m']:.0f} m\n"
         )
@@ -59,8 +66,7 @@ def get_recent_runs(num_runs: int = 10) -> str:
 @tool
 def get_training_stats() -> str:
     """Get overall training statistics — total distance, average pace,
-    longest run, fastest pace, and weekly mileage for the last 4 weeks.
-    Use this to understand the user's fitness level and training history."""
+    longest run, fastest pace, and weekly mileage for the last 4 weeks."""
     engine = get_engine()
     with engine.connect() as conn:
         df = pd.read_sql(text("""
@@ -89,12 +95,13 @@ def get_training_stats() -> str:
     s = df.iloc[0]
     result = f"""
 OVERALL STATS:
+NOTE: all paces are in MM:SS format (e.g. 5:35 means 5 minutes 35 seconds per km)
 - Total runs      : {s['total_runs']}
 - Total distance  : {s['total_km']:.1f} km
 - Avg run distance: {s['avg_distance']:.2f} km
-- Average pace    : {s['avg_pace']:.2f} min/km
+- Average pace    : {format_pace(s['avg_pace'])} min/km
 - Longest run     : {s['longest_run']:.2f} km
-- Fastest pace    : {s['fastest_pace']:.2f} min/km
+- Fastest pace    : {format_pace(s['fastest_pace'])} min/km
 - Total elev gain : {s['total_elevation']:.0f} m
 
 RECENT WEEKLY MILEAGE:
@@ -104,10 +111,6 @@ RECENT WEEKLY MILEAGE:
 
     return result
 
-
-# ─────────────────────────────────────────
-# SILVER tools (track_points table)
-# ─────────────────────────────────────────
 
 @tool
 def get_run_pace_profile(run_id: str) -> str:
@@ -143,6 +146,7 @@ def get_run_pace_profile(run_id: str) -> str:
         )
 
     result  = f"Per-km pace profile for run {run_id}:\n"
+    result += "NOTE: pace is in MM:SS format (e.g. 5:35 means 5 minutes 35 seconds per km)\n"
     result += f"{'km':>4}  {'pace':>8}  {'speed kmh':>10}  {'elev delta':>10}  {'points':>7}\n"
     result += "-" * 50 + "\n"
 
@@ -153,9 +157,7 @@ def get_run_pace_profile(run_id: str) -> str:
         spd  = row['avg_speed_kmh']
         pts  = int(row['point_count'])
         if pace and not pd.isna(pace):
-            mins = int(pace)
-            secs = int((pace - mins) * 60)
-            pace_str = f"{mins}:{secs:02d}"
+            pace_str = format_pace(pace)
             paces.append(pace)
         else:
             pace_str = "N/A"
@@ -168,21 +170,21 @@ def get_run_pace_profile(run_id: str) -> str:
         avg_second  = sum(second_half) / len(second_half)
         diff = avg_second - avg_first
         result += "\nSplit analysis:\n"
-        result += f"  First half avg  : {int(avg_first)}:{int((avg_first % 1)*60):02d} min/km\n"
-        result += f"  Second half avg : {int(avg_second)}:{int((avg_second % 1)*60):02d} min/km\n"
+        result += f"  First half avg  : {format_pace(avg_first)} min/km\n"
+        result += f"  Second half avg : {format_pace(avg_second)} min/km\n"
         if diff > 0.15:
-            result += f"  WARNING: Positive split — faded by {diff:.2f} min/km in second half\n"
+            result += f"  WARNING: Positive split — faded by {format_pace(diff)} in second half\n"
         elif diff < -0.15:
-            result += f"  GOOD: Negative split — stronger by {abs(diff):.2f} min/km in second half\n"
+            result += f"  GOOD: Negative split — stronger by {format_pace(abs(diff))} in second half\n"
         else:
-            result += f"  GOOD: Even pacing — second half within {abs(diff):.2f} min/km of first\n"
+            result += f"  GOOD: Even pacing — second half within {format_pace(abs(diff))} of first\n"
 
         min_pace   = min(paces)
         max_pace   = max(paces)
         fastest_km = int(df.iloc[paces.index(min_pace)]['km_split'])
         slowest_km = int(df.iloc[paces.index(max_pace)]['km_split'])
-        result += f"  Fastest km: km {fastest_km} @ {int(min_pace)}:{int((min_pace%1)*60):02d} min/km\n"
-        result += f"  Slowest km: km {slowest_km} @ {int(max_pace)}:{int((max_pace%1)*60):02d} min/km\n"
+        result += f"  Fastest km: km {fastest_km} @ {format_pace(min_pace)} min/km\n"
+        result += f"  Slowest km: km {slowest_km} @ {format_pace(max_pace)} min/km\n"
 
     return result
 
@@ -190,8 +192,6 @@ def get_run_pace_profile(run_id: str) -> str:
 @tool
 def get_elevation_profile(run_id: str) -> str:
     """Get the elevation and grade profile for a specific run in 500m segments.
-    Use this when the user asks about hilly sections, climbing performance,
-    or when elevation context is needed to explain pace changes.
     IMPORTANT: call get_recent_runs first to get the exact run_id string."""
     engine = get_engine()
     with engine.connect() as conn:
@@ -265,11 +265,8 @@ def get_elevation_profile(run_id: str) -> str:
 
 @tool
 def get_best_efforts(distances_km: list[float] = None) -> str:
-    """Get the user's best (fastest) efforts over common race distances,
-    scanned across all runs. Use this for PR questions, race readiness,
-    or fitness benchmarks.
-    distances_km: list of distances to check, e.g. [1.0, 5.0, 10.0, 21.1]
-    Defaults to [1.0, 5.0, 10.0, 21.1]."""
+    """Get the user's best (fastest) efforts over common race distances.
+    Defaults to [1.0, 5.0, 10.0, 21.1] km."""
     if distances_km is None:
         distances_km = [1.0, 5.0, 10.0, 21.1]
 
@@ -301,7 +298,8 @@ def get_best_efforts(distances_km: list[float] = None) -> str:
             """), conn, params={"dist_m": dist_m})
             results.append((dist_km, df))
 
-    output = "Best efforts across all runs:\n\n"
+    output = "Best efforts across all runs:\n"
+    output += "NOTE: pace is in MM:SS format (e.g. 5:35 means 5 minutes 35 seconds per km)\n\n"
     found_any = False
     for dist_km, df in results:
         if df.empty or df.iloc[0]['elapsed_seconds'] is None:
@@ -312,12 +310,10 @@ def get_best_efforts(distances_km: list[float] = None) -> str:
         secs     = int(row['elapsed_seconds'])
         mins_tot = secs // 60
         secs_rem = secs % 60
-        pace_sec = secs / (row['actual_dist_m'] / 1000)
-        pace_min = int(pace_sec // 60)
-        pace_s   = int(pace_sec % 60)
+        pace_dec = secs / 60 / (row['actual_dist_m'] / 1000)
         output += (
             f"  {dist_km:5.1f} km : {mins_tot}:{secs_rem:02d}"
-            f"  (pace {pace_min}:{pace_s:02d} /km)"
+            f"  (pace {format_pace(pace_dec)} /km)"
             f"  — {row['run_date']}\n"
         )
 
